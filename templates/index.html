@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Old Gold Treasures - Retro Game Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Jolly+Lodger&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='assets/gamepad-icon.png') }}" alt="Gamepad Icon"> 
+                <span>OLD GOLD TREASURES</span>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="nav-item">Search</a>
+                {% if session.username %}
+                    <a href="{{ url_for('profile') }}" class="nav-item">Profile</a>
+                    <a href="{{ url_for('logout') }}" class="nav-item login-btn">Logout ({{ session.username }})</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="nav-item login-btn">Login</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="game-showcase">
+        {% for game in games %}
+        <div class="game-card" onclick="loadGame('{{ game.name }}', '{{ url_for('static', filename=game.file) }}')">
+            <img src="{{ url_for('static', filename=game.thumbnail) }}" alt="{{ game.name }}" class="game-thumbnail">
+            <h3 class="game-title">{{ game.name|upper }}</h3>
+        </div>
+        {% endfor %}
+    </main>
+
+    <footer class="main-footer">
+    </footer>
+
+    <script>
+    function loadGame(gameName, gameFile) {
+        window.location.href = `{{ url_for('play_game') }}?game=${encodeURIComponent(gameName)}&file=${encodeURIComponent(gameFile)}`;
+    }
+    </script>
+</body>
+</html>

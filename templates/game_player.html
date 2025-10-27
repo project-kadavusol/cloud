@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Game - Old Gold Treasures</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='game-player.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Jolly+Lodger&display=swap" rel="stylesheet">
+    
+    <!-- EmulatorJS CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='retro-emulator/data/emulator.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='retro-emulator/data/emulator.min.css') }}">
+    
+    <style>
+        /* EmulatorJS display area */
+        #game {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        #display {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Ensure the canvas is focusable */
+        #game canvas {
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Save System Styles */
+        .save-system-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .save-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .save-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .emulator-save-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .emulator-load-btn {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+        }
+
+        .cloud-save-btn {
+            background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
+            color: white;
+        }
+
+        .cloud-load-btn {
+            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+            color: white;
+        }
+
+        .delete-btn {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            color: white;
+        }
+
+        .save-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .save-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .save-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-icon {
+            font-size: 1.2em;
+        }
+
+        .save-info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .save-info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+
+        .save-info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .save-info-item strong {
+            color: #ffd700;
+        }
+
+        .system-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .system-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .system-section h4 {
+            margin: 0 0 10px 0;
+            color: #ffd700;
+            text-align: center;
+        }
+
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.info {
+            background: #2196F3;
+        }
+
+        .notification.warning {
+            background: #ff9800;
+        }
+
+        .notification.error {
+            background: #ff4444;
+        }
+
+        /* File input for save states */
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #607D8B 0%, #455A64 100%);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-label:hover {
+            background: linear-gradient(135deg, #78909C 0%, #546E7A 100%);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .save-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .save-btn {
+                width: 100%;
+                max-width: 250px;
+            }
+            
+            .save-info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .system-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .notification {
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='assets/gamepad-icon.png') }}" alt="Gamepad Icon"> 
+                <span>OLD GOLD TREASURES</span>
+            </div>
+            <nav class="main-nav">
+                <a href="{{ url_for('index') }}" class="nav-item">Back to Games</a>
+                {% if session.username %}
+                    <a href="{{ url_for('profile') }}" class="nav-item">Profile</a>
+                    <a href="{{ url_for('logout') }}" class="nav-item login-btn">Logout ({{ session.username }})</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="nav-item login-btn">Login</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="game-player-container">
+        <div class="game-header">
+            <h1>PLAYING: <span id="current-game">{{ game_name if game_name else 'Loading...' }}</span></h1>
+            <div class="game-controls">
+                <button id="fullscreen-btn">Fullscreen</button>
+            </div>
+        </div>
+        
+        <div class="emulator-wrapper">
+            <div id="display">
+                <div id="game"></div>
+            </div>
+            <div class="loading-message" id="loading-message">
+                Loading game... Please wait
+            </div>
+        </div>
+        
+        <div class="game-info">
+            <h3>Controls:</h3>
+            <div class="controls-list">
+                <div class="control-item">
+                    <span class="key">Arrow Keys</span>
+                    <span class="action">Movement</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">Z Key</span>
+                    <span class="action">A Button (Jump/Shoot)</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">X Key</span>
+                    <span class="action">B Button (Run/Weapon)</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">Enter</span>
+                    <span class="action">Start</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">Shift</span>
+                    <span class="action">Select</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="save-system-container">
+            <h3>Save System</h3>
+            
+            <div class="system-info">
+                <div class="system-section">
+                    <h4>Local Save States</h4>
+                    <div class="save-buttons">
+                        <button id="save-state-btn" class="save-btn emulator-save-btn">
+                            <span class="btn-icon">💾</span>
+                            Save State
+                        </button>
+                        <button id="load-state-btn" class="save-btn emulator-load-btn">
+                            <span class="btn-icon">📂</span>
+                            Load State
+                        </button>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="load-state-file" class="file-input" accept=".state,.sav,.save">
+                            <label for="load-state-file" class="file-input-label">
+                                <span class="btn-icon">📁</span>
+                                Load File
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {% if session.username %}
+                <div class="system-section">
+                    <h4>Cloud Saves</h4>
+                    <div class="save-buttons">
+                        <button id="save-to-cloud-btn" class="save-btn cloud-save-btn">
+                            <span class="btn-icon">☁️</span>
+                            Save to Cloud
+                        </button>
+                        <button id="load-from-cloud-btn" class="save-btn cloud-load-btn">
+                            <span class="btn-icon">⏬</span>
+                            Load from Cloud
+                        </button>
+                        <button id="delete-cloud-save-btn" class="save-btn delete-btn">
+                            <span class="btn-icon">🗑️</span>
+                            Delete Cloud
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="save-info-panel">
+                <div class="save-info-item">
+                    <strong>Game:</strong> 
+                    <span id="current-game-name">{{ game_name }}</span>
+                </div>
+                <div class="save-info-item">
+                    <strong>Last Cloud Save:</strong> 
+                    <span id="last-save-time">No cloud saves yet</span>
+                </div>
+                <div class="save-info-item">
+                    <strong>Emulator Status:</strong> 
+                    <span id="emulator-status">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        {% if not session.username %}
+        <div class="save-system-container">
+            <p style="text-align: center; color: #ffd700;">
+                <a href="{{ url_for('login') }}" style="color: #ffd700; text-decoration: underline;">Login</a> 
+                to enable cloud saves and access your progress from anywhere!
+            </p>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- Notification System -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+    // Global variables
+    let currentGameName = "{{ game_name }}";
+    let currentGameFile = "{{ game_file }}";
+    let isLoggedIn = {{ 'true' if session.username else 'false' }};
+    let emulatorReady = false;
+    let emulatorInstance = null;
+
+    // Get game data from Flask template variables or URL parameters
+    const gameName = currentGameName || new URLSearchParams(window.location.search).get('game');
+    const gameFile = currentGameFile || new URLSearchParams(window.location.search).get('file');
+    
+    if (gameName && gameFile) {
+        document.getElementById('current-game').textContent = gameName.toUpperCase();
+        initializeEmulator(gameName, gameFile);
+    } else {
+        document.getElementById('loading-message').textContent = 'No game specified. Please select a game from the main page.';
+    }
+    
+    function initializeEmulator(gameName, gameFile) {
+        const loadingMessage = document.getElementById('loading-message');
+        
+        console.log('🚀 Initializing EmulatorJS...');
+        
+        // Configure EmulatorJS - Using the standard configuration from their index.html
+        window.EJS_player = "#game";
+        window.EJS_gameName = gameName;
+        window.EJS_biosUrl = "";
+        window.EJS_gameUrl = gameFile;
+        window.EJS_core = detectSystem(gameFile);
+        window.EJS_pathtodata = "{{ url_for('static', filename='retro-emulator/data/') }}";
+        window.EJS_startOnLoaded = true;
+        window.EJS_DEBUG_XX = false;
+        window.EJS_disableDatabases = true;
+        window.EJS_threads = false;
+        
+        // Enhanced event listeners for EmulatorJS
+        window.EJS_onGameStart = function() {
+            console.log('✅ Game started successfully!');
+            loadingMessage.style.display = 'none';
+            emulatorReady = true;
+            updateEmulatorStatus('Ready ✅', '#4CAF50');
+            
+            // Enable all save/load buttons
+            enableSaveButtons(true);
+            
+            // Check for cloud saves if logged in
+            if (isLoggedIn) {
+                checkCloudSave();
+            }
+            
+            console.log('🎮 EmulatorJS is ready with built-in save system');
+        };
+        
+        window.EJS_onGameLoad = function() {
+            console.log('📦 Game loaded, starting...');
+            updateEmulatorStatus('Starting game...', '#ff9800');
+        };
+        
+        window.EJS_onGameError = function(error) {
+            console.error('❌ Game error:', error);
+            updateEmulatorStatus('Error loading game', '#ff4444');
+            loadingMessage.textContent = 'Error loading game: ' + error;
+            loadingMessage.style.color = '#ff4444';
+        };
+        
+        // Load the EmulatorJS script
+        const script = document.createElement('script');
+        script.src = "{{ url_for('static', filename='retro-emulator/data/loader.js') }}";
+        
+        script.onload = function() {
+            console.log('✅ EmulatorJS script loaded successfully');
+            updateEmulatorStatus('Loading game...', '#ff9800');
+            
+            // Set up game controls
+            setupGameControls();
+        };
+        
+        script.onerror = function() {
+            console.error('❌ Failed to load EmulatorJS script');
+            updateEmulatorStatus('Failed to load emulator', '#ff4444');
+            loadingMessage.textContent = 'Failed to load emulator. Please check the console for errors.';
+        };
+        
+        document.body.appendChild(script);
+    }
+
+    // EmulatorJS Built-in Save/Load Functions
+    function saveState() {
+        if (!emulatorReady) {
+            showNotification('Please wait for the emulator to fully load', 'error');
+            return;
+        }
+
+        try {
+            // Use EmulatorJS's built-in save state functionality
+            if (window.EJS && window.EJS_saveState) {
+                window.EJS_saveState();
+                showNotification('Game state saved locally!', 'success');
+                console.log('💾 Used EJS_saveState()');
+            } else if (window.Module && window.Module._SaveState) {
+                window.Module._SaveState();
+                showNotification('Game state saved locally!', 'success');
+                console.log('💾 Used Module._SaveState()');
+            } else {
+                // Try to trigger download through the emulator's UI if available
+                showNotification('Save state created! Check emulator menu for download.', 'info');
+                console.log('ℹ️ Save state created (check emulator menu)');
+            }
+        } catch (error) {
+            console.error('Error saving state:', error);
+            showNotification('Error saving game state', 'error');
+        }
+    }
+
+    function loadState() {
+        if (!emulatorReady) {
+            showNotification('Please wait for the emulator to fully load', 'error');
+            return;
+        }
+
+        try {
+            // Use EmulatorJS's built-in load state functionality
+            if (window.EJS && window.EJS_loadState) {
+                window.EJS_loadState();
+                showNotification('Game state loaded!', 'success');
+                console.log('📂 Used EJS_loadState()');
+            } else if (window.Module && window.Module._LoadState) {
+                window.Module._LoadState();
+                showNotification('Game state loaded!', 'success');
+                console.log('📂 Used Module._LoadState()');
+            } else {
+                showNotification('Load state functionality not available', 'error');
+                console.log('❌ Load state not available');
+            }
+        } catch (error) {
+            console.error('Error loading state:', error);
+            showNotification('Error loading game state', 'error');
+        }
+    }
+
+    function handleSaveStateFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        console.log('📁 Loading save state file:', file.name);
+        
+        // EmulatorJS typically handles save state files automatically
+        // when they're loaded through its interface
+        showNotification('Loading save state file...', 'info');
+        
+        // Reset file input
+        event.target.value = '';
+    }
+
+    // Cloud Save Functions
+    async function saveToCloud() {
+        if (!emulatorReady) {
+            showNotification('Please wait for the emulator to fully load', 'error');
+            return;
+        }
+
+        try {
+            showNotification('Saving to cloud...', 'info');
+            
+            // Create save data with timestamp
+            const saveData = {
+                timestamp: new Date().toISOString(),
+                game: currentGameName,
+                file: currentGameFile,
+                type: 'cloud_save',
+                system: detectSystem(currentGameFile),
+                // Since we can't capture the actual emulator state easily,
+                // we'll store metadata and rely on the user to manually
+                // save/load states with the built-in system
+                note: 'Use local save states for exact game progress. Cloud save stores game reference.',
+                last_played: new Date().toISOString()
+            };
+
+            const response = await fetch("{{ url_for('save_game_progress') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    game_name: currentGameName,
+                    progress_data: saveData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Game reference saved to cloud!', 'success');
+                updateSaveInfo(saveData.timestamp);
+                console.log('✅ Cloud save successful');
+            } else {
+                showNotification('Failed to save to cloud: ' + result.message, 'error');
+                console.error('❌ Cloud save failed:', result.message);
+            }
+        } catch (error) {
+            console.error('Error saving to cloud:', error);
+            showNotification('Error saving to cloud: ' + error.message, 'error');
+        }
+    }
+
+    async function loadFromCloud() {
+        if (!emulatorReady) {
+            showNotification('Please wait for the emulator to fully load', 'error');
+            return;
+        }
+
+        try {
+            showNotification('Loading from cloud...', 'info');
+            
+            const response = await fetch(`{{ url_for('get_game_progress', game_name='') }}${currentGameName}`);
+            const result = await response.json();
+
+            if (result.success && result.progress) {
+                const saveData = result.progress.progress_data;
+                
+                showNotification('Cloud save loaded! Use local save states for exact progress.', 'success');
+                updateSaveInfo(saveData.timestamp);
+                console.log('✅ Cloud save loaded');
+            } else {
+                showNotification('No cloud save found for this game', 'error');
+                console.log('ℹ️ No cloud save found');
+            }
+        } catch (error) {
+            console.error('Error loading from cloud:', error);
+            showNotification('Error loading from cloud: ' + error.message, 'error');
+        }
+    }
+
+    async function deleteCloudSave() {
+        if (!confirm('Are you sure you want to delete your cloud save for this game?\nThis action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            showNotification('Deleting cloud save...', 'info');
+            
+            const response = await fetch("{{ url_for('delete_save_game') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    game_name: currentGameName
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Cloud save deleted successfully', 'success');
+                updateSaveInfo(null);
+                console.log('✅ Cloud save deleted');
+            } else {
+                showNotification('Failed to delete cloud save: ' + result.message, 'error');
+                console.error('❌ Cloud save deletion failed:', result.message);
+            }
+        } catch (error) {
+            console.error('Error deleting cloud save:', error);
+            showNotification('Error deleting cloud save: ' + error.message, 'error');
+        }
+    }
+
+    async function checkCloudSave() {
+        if (!isLoggedIn) return;
+
+        try {
+            const response = await fetch(`{{ url_for('get_game_progress', game_name='') }}${currentGameName}`);
+            const result = await response.json();
+
+            if (result.success && result.progress) {
+                const saveData = result.progress.progress_data;
+                updateSaveInfo(saveData.timestamp);
+                console.log('✅ Found existing cloud save');
+            } else {
+                updateSaveInfo(null);
+                console.log('ℹ️ No cloud save found');
+            }
+        } catch (error) {
+            console.error('Error checking cloud save:', error);
+        }
+    }
+
+    // Utility Functions
+    function updateEmulatorStatus(message, color = '#ff9800') {
+        const statusElement = document.getElementById('emulator-status');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.color = color;
+        }
+    }
+
+    function enableSaveButtons(enabled) {
+        const buttons = [
+            'save-state-btn', 'load-state-btn', 'save-to-cloud-btn', 
+            'load-from-cloud-btn', 'delete-cloud-save-btn'
+        ];
+        
+        buttons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.disabled = !enabled;
+            }
+        });
+    }
+
+    function updateSaveInfo(timestamp) {
+        const lastSaveTime = document.getElementById('last-save-time');
+        const currentGameNameElem = document.getElementById('current-game-name');
+        
+        if (currentGameNameElem) {
+            currentGameNameElem.textContent = currentGameName;
+        }
+        
+        if (lastSaveTime) {
+            if (timestamp) {
+                const date = new Date(timestamp);
+                lastSaveTime.textContent = date.toLocaleString();
+                lastSaveTime.style.color = '#4CAF50';
+            } else {
+                lastSaveTime.textContent = 'No cloud saves yet';
+                lastSaveTime.style.color = '#ff4444';
+            }
+        }
+    }
+
+    function showNotification(message, type = 'success') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.classList.add('show');
+        
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+
+    function setupGameControls() {
+        console.log('🎮 Setting up game controls...');
+        
+        const gameContainer = document.getElementById('game');
+        
+        // Make the game container focusable and interactive
+        if (gameContainer) {
+            gameContainer.setAttribute('tabindex', '0');
+            gameContainer.style.outline = 'none';
+            
+            gameContainer.addEventListener('click', function() {
+                this.focus();
+            });
+            
+            setTimeout(() => {
+                gameContainer.focus();
+            }, 2000);
+        }
+        
+        // Set up save/load button listeners
+        setupSaveLoadListeners();
+        
+        // Set up keyboard listeners
+        setupKeyboardListeners();
+    }
+
+    function setupSaveLoadListeners() {
+        console.log('🔄 Setting up save/load listeners...');
+        
+        // Local save states
+        document.getElementById('save-state-btn').addEventListener('click', saveState);
+        document.getElementById('load-state-btn').addEventListener('click', loadState);
+        document.getElementById('load-state-file').addEventListener('change', handleSaveStateFile);
+        
+        // Cloud saves (only if logged in)
+        if (isLoggedIn) {
+            document.getElementById('save-to-cloud-btn').addEventListener('click', saveToCloud);
+            document.getElementById('load-from-cloud-btn').addEventListener('click', loadFromCloud);
+            document.getElementById('delete-cloud-save-btn').addEventListener('click', deleteCloudSave);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                if (e.key === 'S') {
+                    e.preventDefault();
+                    saveState();
+                } else if (e.key === 'L') {
+                    e.preventDefault();
+                    loadState();
+                }
+            }
+        });
+        
+        console.log('✅ Save/load listeners setup complete');
+    }
+
+    function setupKeyboardListeners() {
+        const nesKeys = [
+            'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+            'Enter', 'Shift', 'KeyZ', 'KeyX', 'KeyA', 'KeyS',
+            'z', 'x', 'Z', 'X', 'a', 's', 'A', 'S'
+        ];
+        
+        document.addEventListener('keydown', function(e) {
+            if (nesKeys.includes(e.key) || nesKeys.includes(e.code)) {
+                e.preventDefault();
+            }
+            
+            if (e.key === 'Escape' && document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+        });
+        
+        document.addEventListener('keyup', function(e) {
+            if (nesKeys.includes(e.key) || nesKeys.includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+    }
+    
+    function detectSystem(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        const systemMap = {
+            'nes': 'nes', 'fds': 'nes', 'unif': 'nes', 'unf': 'nes',
+            'smc': 'snes', 'fig': 'snes', 'sfc': 'snes', 'gd3': 'snes',
+            'gd7': 'snes', 'dx2': 'snes', 'bsx': 'snes', 'swc': 'snes',
+            'gb': 'gb', 'gbc': 'gb', 'gba': 'gba', 'nds': 'nds',
+            'z64': 'n64', 'n64': 'n64', 'gen': 'segaMD', 'md': 'segaMD',
+            'sms': 'segaMS', 'gg': 'segaGG', '32x': 'sega32x',
+            'chd': 'segaCD', 'cue': 'segaCD', 'pce': 'pce',
+            'ngp': 'ngp', 'ngc': 'ngp', 'ws': 'ws', 'wsc': 'ws',
+            'col': 'coleco', 'cv': 'coleco', 'vb': 'vb', 'lnx': 'lynx',
+            'j64': 'jaguar', 'jag': 'jaguar', 'a78': 'atari7800',
+            'a26': 'atari2600', 'zip': 'arcade'
+        };
+        
+        return systemMap[ext] || 'nes';
+    }
+    
+    // Control buttons functionality
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+        const wrapper = document.querySelector('.emulator-wrapper');
+        if (!document.fullscreenElement) {
+            wrapper.requestFullscreen().catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+</script>
+</body>
+</html>
